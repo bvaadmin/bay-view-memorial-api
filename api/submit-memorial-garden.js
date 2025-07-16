@@ -300,11 +300,11 @@ export default async function handler(req, res) {
           
           // Number properties
           'Fee Amount': properties['Fee Amount'] || properties['Payment Amount'] ? {
-            number: properties['Fee Amount'] || properties['Payment Amount']
+            number: Number(properties['Fee Amount'] || properties['Payment Amount'])
           } : undefined,
           
           'Number of Cremains': properties['Number of Cremains'] ? {
-            number: properties['Number of Cremains']
+            number: Number(properties['Number of Cremains'])
           } : undefined,
           
           // Checkbox property
