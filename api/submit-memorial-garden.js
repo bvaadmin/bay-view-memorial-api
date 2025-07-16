@@ -1,6 +1,23 @@
+// api/submit-memorial-garden.js
+// This file goes in a Vercel project
+
 export default async function handler(req, res) {
   // Enable CORS for your GitHub Pages domain
-  res.setHeader('Access-Control-Allow-Origin', 'https://bvaadmin.github.io');
+  const allowedOrigins = [
+    'https://bvaadmin.github.io',
+    'https://vercel.com',
+    'http://localhost:3000', // for local testing
+    'http://127.0.0.1:5500'  // for VS Code Live Server
+  ];
+  
+  const origin = req.headers.origin;
+  if (allowedOrigins.includes(origin)) {
+    res.setHeader('Access-Control-Allow-Origin', origin);
+  } else {
+    // Default to GitHub Pages for production
+    res.setHeader('Access-Control-Allow-Origin', 'https://bvaadmin.github.io');
+  }
+  
   res.setHeader('Access-Control-Allow-Methods', 'POST, OPTIONS');
   res.setHeader('Access-Control-Allow-Headers', 'Content-Type');
 
@@ -14,7 +31,7 @@ export default async function handler(req, res) {
     return res.status(405).json({ error: 'Method not allowed' });
   }
 
-  // Your Notion API key (from environment variables)
+  // Your Notion API key (set this in Vercel environment variables)
   const NOTION_API_KEY = process.env.NOTION_API_KEY;
   const DATABASE_ID = 'e438c3bd041a4977baacde59ea4cc1e7';
 
@@ -36,33 +53,57 @@ export default async function handler(req, res) {
       body: JSON.stringify({
         parent: { database_id: DATABASE_ID },
         properties: {
+          // Title property (Submission ID)
           'Submission ID': {
-            title: [{
-              text: { content: properties['Submission ID'] || '' }
-            }]
+            title: [
+              {
+                text: {
+                  content: properties['Submission ID'] || ''
+                }
+              }
+            ]
           },
+          // Date properties
           'Submission Date': properties['date:Submission Date:start'] ? {
-            date: { start: properties['date:Submission Date:start'] }
+            date: {
+              start: properties['date:Submission Date:start']
+            }
           } : undefined,
           'Service Date': properties['date:Service Date:start'] ? {
-            date: { start: properties['date:Service Date:start'] }
+            date: {
+              start: properties['date:Service Date:start']
+            }
           } : undefined,
+          // Select properties
           'Status': properties['Status'] ? {
-            select: { name: properties['Status'] }
+            select: {
+              name: properties['Status']
+            }
           } : undefined,
           'Application Type': properties['Application Type'] ? {
-            select: { name: properties['Application Type'] }
+            select: {
+              name: properties['Application Type']
+            }
           } : undefined,
           'Bay View Member': properties['Bay View Member'] ? {
-            select: { name: properties['Bay View Member'] }
+            select: {
+              name: properties['Bay View Member']
+            }
           } : undefined,
           'Celebrant Requested': properties['Celebrant Requested'] ? {
-            select: { name: properties['Celebrant Requested'] }
+            select: {
+              name: properties['Celebrant Requested']
+            }
           } : undefined,
+          // Text properties
           'Contact Name': properties['Contact Name'] ? {
-            rich_text: [{
-              text: { content: properties['Contact Name'] }
-            }]
+            rich_text: [
+              {
+                text: {
+                  content: properties['Contact Name']
+                }
+              }
+            ]
           } : undefined,
           'Contact Phone': properties['Contact Phone'] ? {
             phone_number: properties['Contact Phone']
@@ -71,43 +112,73 @@ export default async function handler(req, res) {
             email: properties['Contact Email']
           } : undefined,
           'Contact Address': properties['Contact Address'] ? {
-            rich_text: [{
-              text: { content: properties['Contact Address'] }
-            }]
+            rich_text: [
+              {
+                text: {
+                  content: properties['Contact Address']
+                }
+              }
+            ]
           } : undefined,
           'Deceased Name': properties['Deceased Name'] ? {
-            rich_text: [{
-              text: { content: properties['Deceased Name'] }
-            }]
+            rich_text: [
+              {
+                text: {
+                  content: properties['Deceased Name']
+                }
+              }
+            ]
           } : undefined,
           'Member Name': properties['Member Name'] ? {
-            rich_text: [{
-              text: { content: properties['Member Name'] }
-            }]
+            rich_text: [
+              {
+                text: {
+                  content: properties['Member Name']
+                }
+              }
+            ]
           } : undefined,
           'Member Relationship': properties['Member Relationship'] ? {
-            rich_text: [{
-              text: { content: properties['Member Relationship'] }
-            }]
+            rich_text: [
+              {
+                text: {
+                  content: properties['Member Relationship']
+                }
+              }
+            ]
           } : undefined,
           'Bay View History': properties['Bay View History'] ? {
-            rich_text: [{
-              text: { content: properties['Bay View History'] }
-            }]
+            rich_text: [
+              {
+                text: {
+                  content: properties['Bay View History']
+                }
+              }
+            ]
           } : undefined,
           'Personal History JSON': properties['Personal History JSON'] ? {
-            rich_text: [{
-              text: { content: properties['Personal History JSON'] }
-            }]
+            rich_text: [
+              {
+                text: {
+                  content: properties['Personal History JSON']
+                }
+              }
+            ]
           } : undefined,
           'Prepayment Names': properties['Prepayment Names'] ? {
-            rich_text: [{
-              text: { content: properties['Prepayment Names'] }
-            }]
+            rich_text: [
+              {
+                text: {
+                  content: properties['Prepayment Names']
+                }
+              }
+            ]
           } : undefined,
+          // Number property
           'Fee Amount': properties['Fee Amount'] ? {
             number: properties['Fee Amount']
           } : undefined,
+          // Checkbox property
           'Policy Agreement': {
             checkbox: properties['Policy Agreement'] === '__YES__'
           }
