@@ -1,5 +1,5 @@
 // api/submit-memorial-garden.js
-// Enhanced version with all fields from Bay View databases
+// This version works with the existing Bay View Memorial Garden Applications database
 
 export default async function handler(req, res) {
   // Enable CORS for your GitHub Pages domain
@@ -53,119 +53,73 @@ export default async function handler(req, res) {
       body: JSON.stringify({
         parent: { database_id: DATABASE_ID },
         properties: {
-          // Title property (Submission ID or Application ID)
+          // Title property (Submission ID)
           'Submission ID': {
             title: [
               {
                 text: {
-                  content: properties['Submission ID'] || properties['Application ID'] || ''
+                  content: properties['Submission ID'] || ''
                 }
               }
             ]
           },
-          
           // Date properties
           'Submission Date': properties['date:Submission Date:start'] ? {
             date: {
-              start: properties['date:Submission Date:start'],
-              end: properties['date:Submission Date:end'] || null,
-              time_zone: properties['date:Submission Date:timezone'] || null
+              start: properties['date:Submission Date:start']
             }
           } : undefined,
-          
           'Service Date': properties['date:Service Date:start'] ? {
             date: {
-              start: properties['date:Service Date:start'],
-              end: properties['date:Service Date:end'] || null,
-              time_zone: properties['date:Service Date:timezone'] || null
+              start: properties['date:Service Date:start']
             }
           } : undefined,
-          
-          // Additional date fields from memorial entries
-          'Date of Birth': properties['date:Date of Birth:start'] ? {
-            date: {
-              start: properties['date:Date of Birth:start']
-            }
-          } : undefined,
-          
-          'Date of Death': properties['date:Date of Death:start'] ? {
-            date: {
-              start: properties['date:Date of Death:start']
-            }
-          } : undefined,
-          
           // Select properties
-          'Status': properties['Status'] || properties['Application Status'] ? {
+          'Status': properties['Status'] ? {
             select: {
-              name: properties['Status'] || properties['Application Status']
+              name: properties['Status']
             }
           } : undefined,
-          
-          'Application Type': properties['Application Type'] || properties['Application Purpose'] ? {
+          'Application Type': properties['Application Type'] ? {
             select: {
-              name: properties['Application Type'] || properties['Application Purpose']
+              name: properties['Application Type']
             }
           } : undefined,
-          
-          'Bay View Member': properties['Bay View Member'] || properties['Bay View Member Status'] ? {
+          'Bay View Member': properties['Bay View Member'] ? {
             select: {
-              name: properties['Bay View Member'] || properties['Bay View Member Status']
+              name: properties['Bay View Member']
             }
           } : undefined,
-          
-          'Celebrant Requested': properties['Celebrant Requested'] || properties['Celebrant Request'] ? {
+          'Celebrant Requested': properties['Celebrant Requested'] ? {
             select: {
-              name: properties['Celebrant Requested'] || properties['Celebrant Request']
+              name: properties['Celebrant Requested']
             }
           } : undefined,
-          
-          // Additional select field
-          'Preferred Time': properties['Preferred Time'] ? {
-            select: {
-              name: properties['Preferred Time']
-            }
-          } : undefined,
-          
           // Text properties
-          'Contact Name': properties['Contact Name'] || properties['Applicant Name'] ? {
+          'Contact Name': properties['Contact Name'] ? {
             rich_text: [
               {
                 text: {
-                  content: properties['Contact Name'] || properties['Applicant Name'] || ''
+                  content: properties['Contact Name']
                 }
               }
             ]
           } : undefined,
-          
           'Contact Phone': properties['Contact Phone'] ? {
             phone_number: properties['Contact Phone']
           } : undefined,
-          
           'Contact Email': properties['Contact Email'] ? {
             email: properties['Contact Email']
           } : undefined,
-          
-          'Contact Address': properties['Contact Address'] || properties['Permanent Home Address'] ? {
+          'Contact Address': properties['Contact Address'] ? {
             rich_text: [
               {
                 text: {
-                  content: properties['Contact Address'] || properties['Permanent Home Address'] || ''
+                  content: properties['Contact Address']
                 }
               }
             ]
           } : undefined,
-          
-          'Bay View Address': properties['Bay View Address'] ? {
-            rich_text: [
-              {
-                text: {
-                  content: properties['Bay View Address']
-                }
-              }
-            ]
-          } : undefined,
-          
-          // Deceased information fields
           'Deceased Name': properties['Deceased Name'] ? {
             rich_text: [
               {
@@ -175,78 +129,6 @@ export default async function handler(req, res) {
               }
             ]
           } : undefined,
-          
-          'First Name of Deceased': properties['First Name of Deceased'] ? {
-            rich_text: [
-              {
-                text: {
-                  content: properties['First Name of Deceased']
-                }
-              }
-            ]
-          } : undefined,
-          
-          'Last Name of Deceased': properties['Last Name of Deceased'] ? {
-            rich_text: [
-              {
-                text: {
-                  content: properties['Last Name of Deceased']
-                }
-              }
-            ]
-          } : undefined,
-          
-          'Middle Name': properties['Middle Name'] ? {
-            rich_text: [
-              {
-                text: {
-                  content: properties['Middle Name']
-                }
-              }
-            ]
-          } : undefined,
-          
-          'Maiden Name': properties['Maiden Name'] ? {
-            rich_text: [
-              {
-                text: {
-                  content: properties['Maiden Name']
-                }
-              }
-            ]
-          } : undefined,
-          
-          'Place of Birth': properties['Place of Birth'] ? {
-            rich_text: [
-              {
-                text: {
-                  content: properties['Place of Birth']
-                }
-              }
-            ]
-          } : undefined,
-          
-          'Mother\'s Name': properties['Mother\'s Name'] ? {
-            rich_text: [
-              {
-                text: {
-                  content: properties['Mother\'s Name']
-                }
-              }
-            ]
-          } : undefined,
-          
-          'Father\'s Name': properties['Father\'s Name'] ? {
-            rich_text: [
-              {
-                text: {
-                  content: properties['Father\'s Name']
-                }
-              }
-            ]
-          } : undefined,
-          
-          // Member relationship fields
           'Member Name': properties['Member Name'] ? {
             rich_text: [
               {
@@ -256,7 +138,6 @@ export default async function handler(req, res) {
               }
             ]
           } : undefined,
-          
           'Member Relationship': properties['Member Relationship'] ? {
             rich_text: [
               {
@@ -266,8 +147,6 @@ export default async function handler(req, res) {
               }
             ]
           } : undefined,
-          
-          // History and notes
           'Bay View History': properties['Bay View History'] ? {
             rich_text: [
               {
@@ -277,7 +156,6 @@ export default async function handler(req, res) {
               }
             ]
           } : undefined,
-          
           'Personal History JSON': properties['Personal History JSON'] ? {
             rich_text: [
               {
@@ -287,7 +165,6 @@ export default async function handler(req, res) {
               }
             ]
           } : undefined,
-          
           'Prepayment Names': properties['Prepayment Names'] ? {
             rich_text: [
               {
@@ -297,42 +174,14 @@ export default async function handler(req, res) {
               }
             ]
           } : undefined,
-          
-          // Number properties
-          'Fee Amount': properties['Fee Amount'] || properties['Payment Amount'] ? {
-            number: Number(properties['Fee Amount'] || properties['Payment Amount'])
+          // Number property - ensure it's converted to number
+          'Fee Amount': properties['Fee Amount'] ? {
+            number: Number(properties['Fee Amount'])
           } : undefined,
-          
-          'Number of Cremains': properties['Number of Cremains'] ? {
-            number: Number(properties['Number of Cremains'])
-          } : undefined,
-          
           // Checkbox property
           'Policy Agreement': {
-            checkbox: properties['Policy Agreement'] === '__YES__' || properties['Policy Agreement'] === true
-          },
-          
-          // Additional fields that might be needed based on the database schema
-          // These fields exist in the database but weren't in original API
-          'Application ID': properties['Application ID'] && !properties['Submission ID'] ? {
-            rich_text: [
-              {
-                text: {
-                  content: properties['Application ID']
-                }
-              }
-            ]
-          } : undefined,
-          
-          'Member ID': properties['Member ID'] ? {
-            rich_text: [
-              {
-                text: {
-                  content: properties['Member ID']
-                }
-              }
-            ]
-          } : undefined
+            checkbox: properties['Policy Agreement'] === '__YES__'
+          }
         }
       })
     });
@@ -348,25 +197,9 @@ export default async function handler(req, res) {
 
     const notionResponse = await response.json();
     
-    // Log successful submission for workflow tracking
-    if (process.env.WORKFLOW_LOG_DATABASE_ID) {
-      try {
-        await logWorkflowStep(
-          properties['Submission ID'] || properties['Application ID'],
-          'Application Submitted',
-          'Completed',
-          'API',
-          'Form submitted successfully'
-        );
-      } catch (logError) {
-        console.error('Failed to log workflow step:', logError);
-        // Don't fail the main request if logging fails
-      }
-    }
-    
     return res.status(200).json({
       success: true,
-      submissionId: properties['Submission ID'] || properties['Application ID'],
+      submissionId: properties['Submission ID'],
       notionId: notionResponse.id,
       url: notionResponse.url
     });
@@ -378,77 +211,4 @@ export default async function handler(req, res) {
       message: error.message 
     });
   }
-}
-
-// Helper function to log workflow steps
-async function logWorkflowStep(bookingId, stepName, status, processedBy, notes) {
-  const NOTION_API_KEY = process.env.NOTION_API_KEY;
-  const WORKFLOW_LOG_DATABASE_ID = process.env.WORKFLOW_LOG_DATABASE_ID || '99fd3b80-8af4-415a-8dd6-84f99a700dd6';
-  
-  const logId = `LOG-${Date.now()}-${Math.random().toString(36).substr(2, 9)}`;
-  
-  await fetch(`https://api.notion.com/v1/pages`, {
-    method: 'POST',
-    headers: {
-      'Authorization': `Bearer ${NOTION_API_KEY}`,
-      'Content-Type': 'application/json',
-      'Notion-Version': '2022-06-28'
-    },
-    body: JSON.stringify({
-      parent: { database_id: WORKFLOW_LOG_DATABASE_ID },
-      properties: {
-        'Log ID': {
-          title: [
-            {
-              text: {
-                content: logId
-              }
-            }
-          ]
-        },
-        'Booking ID': {
-          rich_text: [
-            {
-              text: {
-                content: bookingId
-              }
-            }
-          ]
-        },
-        'Step Name': {
-          select: {
-            name: stepName
-          }
-        },
-        'Status': {
-          select: {
-            name: status
-          }
-        },
-        'Processed By': {
-          rich_text: [
-            {
-              text: {
-                content: processedBy
-              }
-            }
-          ]
-        },
-        'Notes': {
-          rich_text: [
-            {
-              text: {
-                content: notes
-              }
-            }
-          ]
-        },
-        'Processed At': {
-          date: {
-            start: new Date().toISOString()
-          }
-        }
-      }
-    })
-  });
 }
