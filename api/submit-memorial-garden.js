@@ -34,7 +34,7 @@ export default async function handler(req, res) {
 
   // Configuration
   const NOTION_API_KEY = process.env.NOTION_API_KEY;
-  const DATABASE_URL = process.env.DATABASE_URL;
+  const DATABASE_URL = process.env.DATABASE_URL_CLEAN || process.env.DATABASE_URL;
   const NOTION_DATABASE_ID = 'e438c3bd041a4977baacde59ea4cc1e7';
 
   if (!NOTION_API_KEY) {
@@ -45,7 +45,7 @@ export default async function handler(req, res) {
   let pgClient = null;
   if (DATABASE_URL) {
     try {
-      // Remove sslmode parameter and use working configuration
+      // Clean URL and create client
       const cleanUrl = DATABASE_URL.replace('?sslmode=require', '');
       
       pgClient = new Client({
@@ -54,9 +54,13 @@ export default async function handler(req, res) {
           rejectUnauthorized: false
         }
       });
+      
+      console.log('PostgreSQL client created successfully');
     } catch (error) {
       console.error('Error creating PostgreSQL client:', error);
     }
+  } else {
+    console.log('No DATABASE_URL provided');
   }
 
   try {
@@ -74,7 +78,9 @@ export default async function handler(req, res) {
     let pgResult = null;
     if (pgClient) {
       try {
+        console.log('Attempting PostgreSQL connection...');
         await pgClient.connect();
+        console.log('PostgreSQL connected successfully');
         
         // Create the memorial record with all form data
         const insertQuery = `
@@ -141,6 +147,7 @@ export default async function handler(req, res) {
         
       } catch (pgError) {
         console.error('PostgreSQL error:', pgError.message);
+        console.error('PostgreSQL error stack:', pgError.stack);
         // Continue with Notion even if PostgreSQL fails
       } finally {
         try {
@@ -149,6 +156,8 @@ export default async function handler(req, res) {
           console.error('Error closing PostgreSQL connection:', e);
         }
       }
+    } else {
+      console.log('No PostgreSQL client available');
     }
 
     // 2. Save to Notion
