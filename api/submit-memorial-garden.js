@@ -1,20 +1,22 @@
 // api/submit-memorial-garden.js
-// This version works with the existing Bay View Memorial Garden Applications database
+// Enhanced version that saves to both DigitalOcean PostgreSQL and Notion
+// Replace your existing submit-memorial-garden.js with this version
+
+import { Client } from 'pg';
 
 export default async function handler(req, res) {
   // Enable CORS for your GitHub Pages domain
   const allowedOrigins = [
     'https://bvaadmin.github.io',
     'https://vercel.com',
-    'http://localhost:3000', // for local testing
-    'http://127.0.0.1:5500'  // for VS Code Live Server
+    'http://localhost:3000',
+    'http://127.0.0.1:5500'
   ];
   
   const origin = req.headers.origin;
   if (allowedOrigins.includes(origin)) {
     res.setHeader('Access-Control-Allow-Origin', origin);
   } else {
-    // Default to GitHub Pages for production
     res.setHeader('Access-Control-Allow-Origin', 'https://bvaadmin.github.io');
   }
   
@@ -31,19 +33,111 @@ export default async function handler(req, res) {
     return res.status(405).json({ error: 'Method not allowed' });
   }
 
-  // Your Notion API key (set this in Vercel environment variables)
+  // Configuration
   const NOTION_API_KEY = process.env.NOTION_API_KEY;
-  const DATABASE_ID = 'e438c3bd041a4977baacde59ea4cc1e7';
+  const DATABASE_URL = process.env.DATABASE_URL;
+  const NOTION_DATABASE_ID = 'e438c3bd041a4977baacde59ea4cc1e7';
 
-  if (!NOTION_API_KEY) {
-    return res.status(500).json({ error: 'Notion API key not configured' });
+  if (!NOTION_API_KEY || !DATABASE_URL) {
+    return res.status(500).json({ error: 'Missing configuration' });
   }
+
+  // PostgreSQL client
+  const pgClient = new Client({
+    connectionString: DATABASE_URL,
+    ssl: {
+      rejectUnauthorized: false
+    }
+  });
 
   try {
     const { properties } = req.body;
 
-    // Create the Notion page
-    const response = await fetch(`https://api.notion.com/v1/pages`, {
+    // Extract personal history from JSON
+    let personalHistory = {};
+    try {
+      personalHistory = JSON.parse(properties['Personal History JSON'] || '{}');
+    } catch (e) {
+      console.error('Error parsing personal history:', e);
+    }
+
+    // 1. Save to PostgreSQL
+    let pgResult = null;
+    try {
+      await pgClient.connect();
+      
+      // Create the memorial record with all form data
+      const insertQuery = `
+        INSERT INTO bayview.memorials (
+          submission_id,
+          first_name, 
+          last_name, 
+          middle_name,
+          maiden_name,
+          birth_date, 
+          death_date,
+          birth_place,
+          home_address,
+          bayview_address,
+          mother_name,
+          father_name,
+          message,
+          bayview_history,
+          application_type,
+          is_member,
+          member_name,
+          member_relationship,
+          contact_name,
+          contact_email,
+          contact_phone,
+          contact_address,
+          service_date,
+          celebrant_requested,
+          fee_amount
+        ) VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13, $14, $15, $16, $17, $18, $19, $20, $21, $22, $23, $24, $25)
+        RETURNING id, created_at
+      `;
+      
+      const values = [
+        properties['Submission ID'] || '',
+        personalHistory.firstName || properties['Deceased Name']?.split(' ')[0] || '',
+        personalHistory.lastName || properties['Deceased Name']?.split(' ').slice(-1)[0] || '',
+        personalHistory.middleName || '',
+        personalHistory.maidenName || '',
+        personalHistory.birthDate || null,
+        personalHistory.deathDate || null,
+        personalHistory.birthPlace || '',
+        personalHistory.homeAddress || '',
+        personalHistory.bayviewAddress || '',
+        personalHistory.motherName || '',
+        personalHistory.fatherName || '',
+        properties['Bay View History'] || '',
+        personalHistory.bayviewHistory || '',
+        properties['Application Type'] || '',
+        properties['Bay View Member'] === 'Yes',
+        properties['Member Name'] || '',
+        properties['Member Relationship'] || '',
+        properties['Contact Name'] || '',
+        properties['Contact Email'] || '',
+        properties['Contact Phone'] || '',
+        properties['Contact Address'] || '',
+        properties['date:Service Date:start'] || null,
+        properties['Celebrant Requested'] || '',
+        parseFloat(properties['Fee Amount']) || 0
+      ];
+      
+      pgResult = await pgClient.query(insertQuery, values);
+      console.log('PostgreSQL insert successful:', pgResult.rows[0]);
+      
+    } catch (pgError) {
+      console.error('PostgreSQL error:', pgError);
+      // Continue with Notion even if PostgreSQL fails
+    } finally {
+      await pgClient.end();
+    }
+
+    // 2. Save to Notion (existing code with enhancement)
+    const notionResponse = await fetch(`https://api.notion.com/v1/pages`, {
       method: 'POST',
       headers: {
         'Authorization': `Bearer ${NOTION_API_KEY}`,
@@ -51,59 +145,31 @@ export default async function handler(req, res) {
         'Notion-Version': '2022-06-28'
       },
       body: JSON.stringify({
-        parent: { database_id: DATABASE_ID },
+        parent: { database_id: NOTION_DATABASE_ID },
         properties: {
-          // Title property (Submission ID)
           'Submission ID': {
-            title: [
-              {
-                text: {
-                  content: properties['Submission ID'] || ''
-                }
-              }
-            ]
+            title: [{ text: { content: properties['Submission ID'] || '' } }]
           },
-          // Date properties
           'Submission Date': properties['date:Submission Date:start'] ? {
-            date: {
-              start: properties['date:Submission Date:start']
-            }
+            date: { start: properties['date:Submission Date:start'] }
           } : undefined,
           'Service Date': properties['date:Service Date:start'] ? {
-            date: {
-              start: properties['date:Service Date:start']
-            }
+            date: { start: properties['date:Service Date:start'] }
           } : undefined,
-          // Select properties
           'Status': properties['Status'] ? {
-            select: {
-              name: properties['Status']
-            }
+            select: { name: properties['Status'] }
           } : undefined,
           'Application Type': properties['Application Type'] ? {
-            select: {
-              name: properties['Application Type']
-            }
+            select: { name: properties['Application Type'] }
           } : undefined,
           'Bay View Member': properties['Bay View Member'] ? {
-            select: {
-              name: properties['Bay View Member']
-            }
+            select: { name: properties['Bay View Member'] }
           } : undefined,
           'Celebrant Requested': properties['Celebrant Requested'] ? {
-            select: {
-              name: properties['Celebrant Requested']
-            }
+            select: { name: properties['Celebrant Requested'] }
           } : undefined,
-          // Text properties
           'Contact Name': properties['Contact Name'] ? {
-            rich_text: [
-              {
-                text: {
-                  content: properties['Contact Name']
-                }
-              }
-            ]
+            rich_text: [{ text: { content: properties['Contact Name'] } }]
           } : undefined,
           'Contact Phone': properties['Contact Phone'] ? {
             phone_number: properties['Contact Phone']
@@ -112,96 +178,81 @@ export default async function handler(req, res) {
             email: properties['Contact Email']
           } : undefined,
           'Contact Address': properties['Contact Address'] ? {
-            rich_text: [
-              {
-                text: {
-                  content: properties['Contact Address']
-                }
-              }
-            ]
+            rich_text: [{ text: { content: properties['Contact Address'] } }]
           } : undefined,
           'Deceased Name': properties['Deceased Name'] ? {
-            rich_text: [
-              {
-                text: {
-                  content: properties['Deceased Name']
-                }
-              }
-            ]
+            rich_text: [{ text: { content: properties['Deceased Name'] } }]
           } : undefined,
           'Member Name': properties['Member Name'] ? {
-            rich_text: [
-              {
-                text: {
-                  content: properties['Member Name']
-                }
-              }
-            ]
+            rich_text: [{ text: { content: properties['Member Name'] } }]
           } : undefined,
           'Member Relationship': properties['Member Relationship'] ? {
-            rich_text: [
-              {
-                text: {
-                  content: properties['Member Relationship']
-                }
-              }
-            ]
+            rich_text: [{ text: { content: properties['Member Relationship'] } }]
           } : undefined,
           'Bay View History': properties['Bay View History'] ? {
-            rich_text: [
-              {
-                text: {
-                  content: properties['Bay View History']
-                }
-              }
-            ]
+            rich_text: [{ text: { content: properties['Bay View History'] } }]
           } : undefined,
           'Personal History JSON': properties['Personal History JSON'] ? {
-            rich_text: [
-              {
-                text: {
-                  content: properties['Personal History JSON']
-                }
-              }
-            ]
+            rich_text: [{ text: { content: properties['Personal History JSON'] } }]
           } : undefined,
           'Prepayment Names': properties['Prepayment Names'] ? {
-            rich_text: [
-              {
-                text: {
-                  content: properties['Prepayment Names']
-                }
-              }
-            ]
+            rich_text: [{ text: { content: properties['Prepayment Names'] } }]
           } : undefined,
-          // Number property - ensure it's converted to number
           'Fee Amount': properties['Fee Amount'] ? {
             number: Number(properties['Fee Amount'])
           } : undefined,
-          // Checkbox property
           'Policy Agreement': {
             checkbox: properties['Policy Agreement'] === '__YES__'
+          },
+          // Add PostgreSQL ID if successful
+          'Database ID': pgResult ? {
+            rich_text: [{ text: { content: pgResult.rows[0].id.toString() } }]
+          } : undefined,
+          // Add sync status
+          'Sync Status': {
+            select: { 
+              name: pgResult ? 'Synced to Both' : 'Notion Only' 
+            }
           }
         }
       })
     });
 
-    if (!response.ok) {
-      const errorData = await response.json();
+    if (!notionResponse.ok) {
+      const errorData = await notionResponse.json();
       console.error('Notion API error:', errorData);
-      return res.status(response.status).json({ 
+      return res.status(notionResponse.status).json({ 
         error: 'Failed to create Notion entry',
-        details: errorData 
+        details: errorData,
+        pgSuccess: !!pgResult
       });
     }
 
-    const notionResponse = await response.json();
+    const notionData = await notionResponse.json();
+    
+    // If we have both successful saves, update the PostgreSQL record with Notion ID
+    if (pgResult && notionData.id) {
+      try {
+        await pgClient.connect();
+        await pgClient.query(
+          'UPDATE bayview.memorials SET notion_id = $1 WHERE id = $2',
+          [notionData.id, pgResult.rows[0].id]
+        );
+      } catch (updateError) {
+        console.error('Error updating PostgreSQL with Notion ID:', updateError);
+      } finally {
+        await pgClient.end();
+      }
+    }
     
     return res.status(200).json({
       success: true,
       submissionId: properties['Submission ID'],
-      notionId: notionResponse.id,
-      url: notionResponse.url
+      notionId: notionData.id,
+      notionUrl: notionData.url,
+      pgId: pgResult ? pgResult.rows[0].id : null,
+      message: pgResult ? 'Successfully saved to both databases' : 'Saved to Notion only',
+      syncStatus: pgResult ? 'complete' : 'partial'
     });
 
   } catch (error) {
