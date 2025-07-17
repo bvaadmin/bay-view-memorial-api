@@ -41,25 +41,19 @@ export default async function handler(req, res) {
     return res.status(500).json({ error: 'Notion API key not configured' });
   }
 
-  // PostgreSQL client with enhanced SSL handling
+  // PostgreSQL client with working SSL configuration
   let pgClient = null;
   if (DATABASE_URL) {
     try {
-      // Parse the connection string to handle SSL mode
-      const url = new URL(DATABASE_URL);
-      const sslMode = url.searchParams.get('sslmode');
+      // Remove sslmode parameter and use working configuration
+      const cleanUrl = DATABASE_URL.replace('?sslmode=require', '');
       
-      // Create client with appropriate SSL configuration
-      const clientConfig = {
-        connectionString: DATABASE_URL,
-        ssl: sslMode === 'require' ? {
-          rejectUnauthorized: false,
-          // Use system CA certificates
-          ca: undefined
-        } : false
-      };
-      
-      pgClient = new Client(clientConfig);
+      pgClient = new Client({
+        connectionString: cleanUrl,
+        ssl: {
+          rejectUnauthorized: false
+        }
+      });
     } catch (error) {
       console.error('Error creating PostgreSQL client:', error);
     }
@@ -246,10 +240,10 @@ export default async function handler(req, res) {
     const notionData = await notionResponse.json();
     
     // If we have both successful saves, update the PostgreSQL record with Notion ID
-    if (pgResult && notionData.id && pgClient) {
+    if (pgResult && notionData.id) {
       try {
         const updateClient = new Client({
-          connectionString: DATABASE_URL,
+          connectionString: DATABASE_URL.replace('?sslmode=require', ''),
           ssl: {
             rejectUnauthorized: false
           }
