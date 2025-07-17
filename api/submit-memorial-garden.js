@@ -1,6 +1,5 @@
 // api/submit-memorial-garden.js
 // Enhanced version that saves to both DigitalOcean PostgreSQL and Notion
-// Replace your existing submit-memorial-garden.js with this version
 
 import { Client } from 'pg';
 
@@ -38,17 +37,33 @@ export default async function handler(req, res) {
   const DATABASE_URL = process.env.DATABASE_URL;
   const NOTION_DATABASE_ID = 'e438c3bd041a4977baacde59ea4cc1e7';
 
-  if (!NOTION_API_KEY || !DATABASE_URL) {
-    return res.status(500).json({ error: 'Missing configuration' });
+  if (!NOTION_API_KEY) {
+    return res.status(500).json({ error: 'Notion API key not configured' });
   }
 
-  // PostgreSQL client
-  const pgClient = new Client({
-    connectionString: DATABASE_URL,
-    ssl: {
-      rejectUnauthorized: false
+  // PostgreSQL client with enhanced SSL handling
+  let pgClient = null;
+  if (DATABASE_URL) {
+    try {
+      // Parse the connection string to handle SSL mode
+      const url = new URL(DATABASE_URL);
+      const sslMode = url.searchParams.get('sslmode');
+      
+      // Create client with appropriate SSL configuration
+      const clientConfig = {
+        connectionString: DATABASE_URL,
+        ssl: sslMode === 'require' ? {
+          rejectUnauthorized: false,
+          // Use system CA certificates
+          ca: undefined
+        } : false
+      };
+      
+      pgClient = new Client(clientConfig);
+    } catch (error) {
+      console.error('Error creating PostgreSQL client:', error);
     }
-  });
+  }
 
   try {
     const { properties } = req.body;
@@ -61,82 +76,88 @@ export default async function handler(req, res) {
       console.error('Error parsing personal history:', e);
     }
 
-    // 1. Save to PostgreSQL
+    // 1. Save to PostgreSQL (if available)
     let pgResult = null;
-    try {
-      await pgClient.connect();
-      
-      // Create the memorial record with all form data
-      const insertQuery = `
-        INSERT INTO bayview.memorials (
-          submission_id,
-          first_name, 
-          last_name, 
-          middle_name,
-          maiden_name,
-          birth_date, 
-          death_date,
-          birth_place,
-          home_address,
-          bayview_address,
-          mother_name,
-          father_name,
-          message,
-          bayview_history,
-          application_type,
-          is_member,
-          member_name,
-          member_relationship,
-          contact_name,
-          contact_email,
-          contact_phone,
-          contact_address,
-          service_date,
-          celebrant_requested,
-          fee_amount
-        ) VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13, $14, $15, $16, $17, $18, $19, $20, $21, $22, $23, $24, $25)
-        RETURNING id, created_at
-      `;
-      
-      const values = [
-        properties['Submission ID'] || '',
-        personalHistory.firstName || properties['Deceased Name']?.split(' ')[0] || '',
-        personalHistory.lastName || properties['Deceased Name']?.split(' ').slice(-1)[0] || '',
-        personalHistory.middleName || '',
-        personalHistory.maidenName || '',
-        personalHistory.birthDate || null,
-        personalHistory.deathDate || null,
-        personalHistory.birthPlace || '',
-        personalHistory.homeAddress || '',
-        personalHistory.bayviewAddress || '',
-        personalHistory.motherName || '',
-        personalHistory.fatherName || '',
-        properties['Bay View History'] || '',
-        personalHistory.bayviewHistory || '',
-        properties['Application Type'] || '',
-        properties['Bay View Member'] === 'Yes',
-        properties['Member Name'] || '',
-        properties['Member Relationship'] || '',
-        properties['Contact Name'] || '',
-        properties['Contact Email'] || '',
-        properties['Contact Phone'] || '',
-        properties['Contact Address'] || '',
-        properties['date:Service Date:start'] || null,
-        properties['Celebrant Requested'] || '',
-        parseFloat(properties['Fee Amount']) || 0
-      ];
-      
-      pgResult = await pgClient.query(insertQuery, values);
-      console.log('PostgreSQL insert successful:', pgResult.rows[0]);
-      
-    } catch (pgError) {
-      console.error('PostgreSQL error:', pgError);
-      // Continue with Notion even if PostgreSQL fails
-    } finally {
-      await pgClient.end();
+    if (pgClient) {
+      try {
+        await pgClient.connect();
+        
+        // Create the memorial record with all form data
+        const insertQuery = `
+          INSERT INTO bayview.memorials (
+            submission_id,
+            first_name, 
+            last_name, 
+            middle_name,
+            maiden_name,
+            birth_date, 
+            death_date,
+            birth_place,
+            home_address,
+            bayview_address,
+            mother_name,
+            father_name,
+            message,
+            bayview_history,
+            application_type,
+            is_member,
+            member_name,
+            member_relationship,
+            contact_name,
+            contact_email,
+            contact_phone,
+            contact_address,
+            service_date,
+            celebrant_requested,
+            fee_amount
+          ) VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13, $14, $15, $16, $17, $18, $19, $20, $21, $22, $23, $24, $25)
+          RETURNING id, created_at
+        `;
+        
+        const values = [
+          properties['Submission ID'] || '',
+          personalHistory.firstName || properties['Deceased Name']?.split(' ')[0] || '',
+          personalHistory.lastName || properties['Deceased Name']?.split(' ').slice(-1)[0] || '',
+          personalHistory.middleName || '',
+          personalHistory.maidenName || '',
+          personalHistory.birthDate || null,
+          personalHistory.deathDate || null,
+          personalHistory.birthPlace || '',
+          personalHistory.homeAddress || '',
+          personalHistory.bayviewAddress || '',
+          personalHistory.motherName || '',
+          personalHistory.fatherName || '',
+          properties['Bay View History'] || '',
+          personalHistory.bayviewHistory || '',
+          properties['Application Type'] || '',
+          properties['Bay View Member'] === 'Yes',
+          properties['Member Name'] || '',
+          properties['Member Relationship'] || '',
+          properties['Contact Name'] || '',
+          properties['Contact Email'] || '',
+          properties['Contact Phone'] || '',
+          properties['Contact Address'] || '',
+          properties['date:Service Date:start'] || null,
+          properties['Celebrant Requested'] || '',
+          parseFloat(properties['Fee Amount']) || 0
+        ];
+        
+        pgResult = await pgClient.query(insertQuery, values);
+        console.log('PostgreSQL insert successful:', pgResult.rows[0]);
+        
+      } catch (pgError) {
+        console.error('PostgreSQL error:', pgError.message);
+        // Continue with Notion even if PostgreSQL fails
+      } finally {
+        try {
+          await pgClient.end();
+        } catch (e) {
+          console.error('Error closing PostgreSQL connection:', e);
+        }
+      }
     }
 
-    // 2. Save to Notion (existing code with enhancement)
+    // 2. Save to Notion
     const notionResponse = await fetch(`https://api.notion.com/v1/pages`, {
       method: 'POST',
       headers: {
@@ -225,17 +246,25 @@ export default async function handler(req, res) {
     const notionData = await notionResponse.json();
     
     // If we have both successful saves, update the PostgreSQL record with Notion ID
-    if (pgResult && notionData.id) {
+    if (pgResult && notionData.id && pgClient) {
       try {
-        await pgClient.connect();
-        await pgClient.query(
+        const updateClient = new Client({
+          connectionString: DATABASE_URL,
+          ssl: {
+            rejectUnauthorized: false
+          }
+        });
+        
+        await updateClient.connect();
+        await updateClient.query(
           'UPDATE bayview.memorials SET notion_id = $1 WHERE id = $2',
           [notionData.id, pgResult.rows[0].id]
         );
+        await updateClient.end();
+        
+        console.log('PostgreSQL updated with Notion ID');
       } catch (updateError) {
         console.error('Error updating PostgreSQL with Notion ID:', updateError);
-      } finally {
-        await pgClient.end();
       }
     }
     
