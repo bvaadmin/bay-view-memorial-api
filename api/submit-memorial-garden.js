@@ -207,13 +207,7 @@ export default async function handler(req, res) {
           // Add PostgreSQL ID if successful
           'Database ID': pgResult ? {
             rich_text: [{ text: { content: pgResult.rows[0].id.toString() } }]
-          } : undefined,
-          // Add sync status
-          'Sync Status': {
-            select: { 
-              name: pgResult ? 'Synced to Both' : 'Notion Only' 
-            }
-          }
+          } : undefined
         }
       })
     });
