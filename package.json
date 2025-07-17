@@ -2,5 +2,8 @@
   "name": "bay-view-memorial-garden-api",
   "version": "1.0.0",
   "description": "API endpoint for Bay View Memorial Garden form submissions",
-  "main": "api/submit-memorial-garden.js"
+  "main": "api/submit-memorial-garden.js",
+  "dependencies": {
+    "pg": "^8.11.3"
+  }
 }
